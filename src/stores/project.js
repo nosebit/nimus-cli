@@ -8,6 +8,7 @@ import LoggerFactory from "../utils/logger";
 const Logger = new LoggerFactory("stores.project");
 
 const PROJECTS_DIR = `${os.homedir()}/.nimus/projects`;
+const SSH_DIR = `${os.homedir()}/.nimus/ssh`;
 
 export default class ProjectStore {
     static data = {};
@@ -18,9 +19,10 @@ export default class ProjectStore {
 
         // Create drivers dir
         mkdirp(PROJECTS_DIR);
+        mkdirp(SSH_DIR);
 
         // Variables
-        let i, filenames, filename, content;
+        let i, filenames, filename, content, project, pubKey, prvKey;
 
         // Load all projects
         try {
@@ -42,11 +44,28 @@ export default class ProjectStore {
             const projectName = path.basename(filename, ".json");
 
             try {
-                const obj = JSON.parse(content);
-                ProjectStore.data[projectName] = obj;
+                project = JSON.parse(content);
             } catch(error) {
-                logger.error(`could not parse project file to json : ${filename}`, error);
+                return logger.error(`could not parse project file to json : ${filename}`, error);
             }
+
+            // Read associated ssh priv key
+            try {
+                prvKey = fs.readFileSync(path.resolve(SSH_DIR, `${projectName}`), "utf-8");
+            } catch(error) {
+                logger.error(`could not read project ssh prv key file`, error);
+                continue;
+            }
+
+            // Read associated ssh pub key
+            try {
+                pubKey = fs.readFileSync(path.resolve(SSH_DIR, `${projectName}.pub`), "utf-8");
+            } catch(error) {
+                logger.error(`could not read project ssh pub key file`, error);
+                continue;
+            }
+
+            ProjectStore.data[projectName] = Object.assign(project, {pubKey, prvKey});
         }
 
         return ProjectStore.data;
@@ -58,9 +77,9 @@ export default class ProjectStore {
 
     static async add(project = {}) {
         const logger = Logger.create("add");
-        logger.debug("enter", driver);
+        logger.debug("enter", project);
 
-        if(ProjectStore.exists(driver.name)) {
+        if(ProjectStore.exists(project.name)) {
             throw `a project with name ${project.name} already exists`;
         }
 
@@ -130,7 +149,7 @@ export default class ProjectStore {
         const promises = [];
 
         for(let i = 0; i < projectsToPersist.length; i++) {
-            const projectData = projectsToPersist[i];
+            const projectData = lodash.pick(projectsToPersist[i], ["name", "instances"]);
             const filepath = `${PROJECTS_DIR}/${projectData.name}.json`;
 
             const promise = new Promise((resolve, reject) => {

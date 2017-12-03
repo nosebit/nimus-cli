@@ -180,6 +180,18 @@ export default class GoogleApi {
     }
 
     /**
+     * This function sets metadata to an instance
+     */
+    instanceMetadataSet(instanceName, metadata) {
+        return this.request(
+            "POST", 
+            `${GoogleApi.computeBaseUrl}/projects/${this.project}/zones/${this.zone}/instances/${instanceName}/setMetadata`,
+            metadata,
+            {operationType: "zone"}
+        )
+    }
+
+    /**
      * This function removes a disk.
      */
     diskRemove(name) {

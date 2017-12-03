@@ -17,8 +17,8 @@
     "nimus": "dist/nimus.js"
   },
   "devDependencies": {
-    "babel-eslint": "^8.0.1",
     "babel-cli": "^6.26.0",
+    "babel-eslint": "^8.0.1",
     "babel-plugin-add-module-exports": "^0.2.1",
     "babel-plugin-autobind-class-methods": "^5.0.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
@@ -36,6 +36,7 @@
     "@google-cloud/compute": "^0.9.0",
     "babel-runtime": "^6.26.0",
     "cli-spinner": "^0.2.7",
+    "cli-spinners": "^1.1.0",
     "cli-table": "^0.3.1",
     "colors": "^1.1.2",
     "commander": "^2.11.0",
@@ -43,8 +44,11 @@
     "lodash": "^4.17.4",
     "mkdirp": "^0.5.1",
     "moment": "^2.19.3",
+    "object-hash": "^1.2.0",
+    "ora": "^1.3.0",
     "prompt-confirm": "^1.2.0",
     "request": "^2.83.0",
+    "ssh2": "^0.5.5",
     "winston": "^2.4.0",
     "winston-daily-rotate-file": "^1.7.2"
   }

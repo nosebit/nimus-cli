@@ -5,6 +5,7 @@
 import moment from "moment";
 import lodash from "lodash";
 import colors from "colors";
+import ora from "ora";
 
 function getLevelColor(level) {
     switch (level) {
@@ -36,22 +37,44 @@ const levelOrder = ["debug", "info", "warn", "error"];
 class LoggerFactory {
     static level = (process.env.NODE_ENV == "development" ? 0 : 1);
 
-    static _log(level, message, data, opts) {
+    static _log(level, message, data, opts = {}) {
         const levelColor = getLevelColor(level);
-        let text = `${levelColor(level)}: ${message}`;
 
         let dataStr = data ?
             ": " + JSON.stringify(lodash.merge({}, data)) :
             "";
 
+        let text = `${levelColor(level)}: ${message}`;
+
         if(level == "log") {
             text = message;
         }
 
-        console.log(`${text} ${colors.grey(dataStr)}`);
+        text = `${text} ${colors.grey(dataStr)}`;
+        const timestamp = moment();
+        const symbol = opts.symbol || (level != "error" ? "•" : "🔴");
+        const spinner = ora({text: `${text}`, spinner: "circle", color: "black"});
+
+        if(!opts.async) {
+            console.log(`${symbol} ${text}`);
+        } else {
+            spinner.start();
+        }
 
         return {
-            timestamp: moment(),
+            text,
+            symbol,
+            spinner,
+            timestamp,
+            start: function() {
+                this.spinner.start();
+            },
+            stop: function() {
+                this.spinner.stopAndPersist(this.symbol);
+            },
+            print: function() {
+                console.log(this.text);
+            },
             elapsed: function() {
                 const currentMoment = moment();
                 return currentMoment.diff(this.timestamp, 'milliseconds');
@@ -156,13 +179,10 @@ class Logger {
      * @param {array} rest - An array with metadata entities to be logged alongside the log message.
      * @returns {void}
      */
-    _log(level, message, data, opts) {
+    _log(level, message, data, opts = {}) {
         if(this.opts.disabled || (this.opts.level >= 0 && levelOrder.indexOf(level) < this.opts.level)){return;}
 
-        let timestamp = colors.blue(moment().toISOString());
-        let consoleLevel = Logger.consoleLevelMap[level];
         let levelColor = getLevelColor(level);
-
         let dataStr = "";
 
         if(data) {
@@ -170,12 +190,31 @@ class Logger {
                 ": " + JSON.stringify(data);
         }
 
-        console.log(
-            `${levelColor(level)}: [${this.moduleName}] ${this.scopeName} : ${message} ${colors.grey(dataStr)}`
-        );
+        const text = `${levelColor(level)}: [${this.moduleName}] ${this.scopeName} : ${message} ${colors.grey(dataStr)}`;
+        const timestamp = moment();
+        const symbol = opts.symbol || (level != "error" ? "•" : "🔴");
+        const spinner = ora({text: `${text}`, spinner: "circle", color: "black"});
+
+        if(!opts.async) {
+            console.log(`${symbol} ${text}`);
+        } else {
+            spinner.start();
+        }
 
         return {
-            timestamp: moment(),
+            text,
+            symbol,
+            spinner,
+            timestamp,
+            start: function() {
+                this.spinner.start();
+            },
+            stop: function() {
+                this.spinner.stopAndPersist(this.symbol);
+            },
+            print: function() {
+                console.log(this.text);
+            },
             elapsed: function() {
                 const currentMoment = moment();
                 return currentMoment.diff(this.timestamp, 'milliseconds');

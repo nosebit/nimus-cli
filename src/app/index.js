@@ -6,6 +6,7 @@ import lodash from "lodash";
 import {Spinner} from "cli-spinner";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
+import {spawn} from "child_process";
 import LoggerFactory from "../utils/logger";
 import {GoogleDriver} from "../drivers";
 import {DriverStore, ProjectStore} from "../stores";
@@ -13,6 +14,8 @@ import {DriverStore, ProjectStore} from "../stores";
 import InstanceManager from "./instance";
 
 const Logger = new LoggerFactory("nimus");
+
+const SSH_DIR = `${os.homedir()}/.nimus/ssh`;
 
 class Nimus {
     constructor({
@@ -32,6 +35,8 @@ class Nimus {
     load() {
         const logger = Logger.create("load");
         logger.debug("enter");
+
+        mkdirp(SSH_DIR);
 
         // Load all projects
         try {
@@ -55,12 +60,66 @@ class Nimus {
     // This function creates a new project.
     async projectCreate(name) {
         const logger = Logger.create("projectCreate");
+        const sshKeyPath = `${SSH_DIR}/${name}`;
         logger.debug("enter", {name});
+
+        const sshKeysExists = fs.existsSync(sshKeyPath);
+        let sshPubKey;
+
+        logger.debug("ssh exists", {sshKeysExists, path: sshKeyPath});
+
+        // If ssh keys was not created yet, let's create it
+        if(!sshKeysExists) {
+            LoggerFactory.info("🔓  creating ssh keys");
+
+            const keygen = spawn("ssh-keygen", [
+                "-t","rsa",
+                "-C", "nimus",
+                "-f", sshKeyPath
+            ]);
+
+            try {
+                sshPubKey = await new Promise((resolve, reject) => {
+                    keygen.on('exit', (code) => {
+                        if(code) {
+                            return reject("could not create ssh keys", {code});
+                        }
+
+                        LoggerFactory.info("🔓  setting chmod for ssh keys");
+
+                        const chmod = spawn("chmod", [
+                            "400",
+                            sshKeyPath
+                        ]);
+
+                        chmod.on('exit', (code) => {
+                            if(code) {
+                                return reject("could not chmod ssh keys", {code});
+                            }
+
+                            // Load pub ssh key created.
+                            try {
+                                const content = fs.readFileSync(`${SSH_DIR}/${name}.pub`, "utf-8");
+                                logger.debug("ssh pub key read success", content);
+
+                                resolve(content);
+                            } catch(error) {
+                                logger.debug('could not read ssh pub key file', error);
+                                return reject(error);
+                            }
+                        });
+                    });
+                })
+            } catch(error) {
+                return logger.error("could not create ssh keys", error);
+            }
+        }
 
         try {
             await ProjectStore.add({
                 name,
-                instances: {}
+                instances: {},
+                pubKey: sshPubKey
             });
         } catch(error) {
             return logger.error(`could not create project "${name}"`, error);

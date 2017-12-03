@@ -1,7 +1,8 @@
 import lodash from "lodash";
-import {Spinner} from "cli-spinner";
+import ora from "ora";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
+import ssh2 from "ssh2";
 
 import LoggerFactory from "../utils/logger";
 import {DriverStore, ProjectStore} from "../stores";
@@ -9,8 +10,75 @@ import {DriverStore, ProjectStore} from "../stores";
 const Logger = new LoggerFactory("instance.manager");
 
 export default class NimusInstanceManager {
+    /**
+     * This function setups an instance.
+     */
+    async setup(projectName, instanceName) {
+        const logger = Logger.create("setup");
+        logger.debug("enter", {projectName, instanceName});
+
+        const project = ProjectStore.get(projectName);
+
+        // Create new project if not created yet.
+        if(!project) {
+            return logger.error("project not found");
+        }
+
+        const instance = project.instances[instanceName];
+
+        if(!instance) {
+            return logger.error("instance not found");
+        }
+
+        const driver = DriverStore.get(instance.driver);
+
+        if(!driver) {
+            return logger.error("driver not found");
+        }
+
+        return new Promise((resolve, reject) => {
+            const ssh = new ssh2.Client();
+            const connectData = {
+                host: instance.network.externalIp,
+                username: 'nimus',
+                port: 22,
+                privateKey: project.prvKey,
+                readyTimeout: 99999
+            };
+
+            logger.debug("ssh connect data", connectData);
+            
+            let metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`, null, {async: true});
+
+            ssh.on('ready', () => {
+                metrics.stop();
+
+                metrics = LoggerFactory.info(`⚙️  (${instance.name}) setting up instance ...`, {timeToConnect: metrics.elapsed()}, {async: true});
+
+                ssh.exec('uptime', (error, stream) => {
+                    if (error) {
+                        metrics.stop();
+                        logger.error(`😱  (${instance.name}) ssh command failed`, error);
+                        return reject(error);
+                    }
+
+                    stream.on('close', (code, signal) => {
+                        metrics.stop();
+                        LoggerFactory.info(`📡  (${instance.name}) disconnect`, {timeToSetup: metrics.elapsed()});
+
+                        resolve();
+                        ssh.end();
+                    }).on('data', (info) => {
+                        metrics.stop();
+                        LoggerFactory.info(`⚙️  (${instance.name}) ${info}`);
+                    });
+                });
+            }).connect(connectData);
+        });
+    }
+
     async create(projectName, driverName, data, count) {
-        const logger = Logger.create("instanceCreate");
+        const logger = Logger.create("create");
         logger.debug("enter", {projectName, driverName, data, count});
 
         const driver = DriverStore.get(driverName);
@@ -19,41 +87,56 @@ export default class NimusInstanceManager {
 
         // @TODO : validate args
         if(!driver) {
-            return logger.error("a driver is required");
+            return logger.error("driver not found");
         }
 
         // Create new project if not created yet.
         if(!project) {
-            this.projectCreate(projectName);
+            return logger.error("project not found");
         }
 
-        const spinner = new Spinner("%s");
-        spinner.start();
+        const spinner = ora().start();
 
         const promises = [];
 
         for(let i = 0; i < count; i++) {
             const instanceData = count > 1 ? lodash.assign({}, data, {name: `${data.name}-${i+1}`}) : data;
 
-            const metrics = LoggerFactory.info(`🚀  creating instance "${instanceData.name}"`);
+            // Add metadata
+            instanceData.metadata = {
+                "sshKeys": `nimus:${project.pubKey}`
+            };
+
+            const metrics = LoggerFactory.info(`🚀  [${instanceData.name}] creating instance`);
+
+            logger.debug(`instance data`, instanceData);
 
             ((i, metrics) => {
-                const promise = driver.instanceCreate(instanceData).then((instance) => {
-                    logger.debug(`instance ${instance.name} created`, {elapsed: metrics.elapsed()});
+                const promise = driver.instanceCreate(instanceData).then(async (instance) => {
+                    logger.debug(`instance ${instance.name} created`, {elapsed: metrics.elapsed(), instance});
 
-                    const project = ProjectStore.get(projectName);
+                    // Set instance
                     project.instances[instance.name] = instance;
 
-                    return ProjectStore.persist().then(() => {
-                        return {metrics, instance};
-                    }).catch((error) => {
+                    try {
+                        await ProjectStore.persist();
+                    } catch(error) {
                         logger.error(`could not persist project "${projectName}"`, error);
                         return {metrics};
-                    });
+                    }
+
+                    // setup instance
+                    try {
+                        await this.setup(project.name, instance.name);
+                    } catch(error) {
+                        logger.error(`could not setup instance "${instance.name}"`, error);
+                    }
+
+                    return {metrics, instance};
                 }).catch((error) => {
                     if(count === 1) {throw error;}
 
-                    logger.error(`instance create error : index=${i+1}`, error);
+                    logger.error(`😱  instance create error : index=${i+1}`, error);
                     return {instance: null, metrics};
                 });
 
@@ -63,7 +146,7 @@ export default class NimusInstanceManager {
 
         try {
             const results = await Promise.all(promises);
-            spinner.stop(true);
+            spinner.stop();
 
             logger.debug("driver instanceCreate success", results);
 
@@ -78,7 +161,7 @@ export default class NimusInstanceManager {
                 LoggerFactory.info(`☕️  instance "${instance.name}" created : ip=${instance.network.externalIp}`, {elapsed: metrics.elapsed()});
             }
         } catch(error) {
-            spinner.stop(true);
+            spinner.stop();
             logger.error("instance create error", error);
         }
     }
@@ -91,8 +174,7 @@ export default class NimusInstanceManager {
 
         LoggerFactory.info("🚀  listing instances");
 
-        const spinner = new Spinner("%s");
-        spinner.start();
+        const spinner = ora().start();
 
         logger.debug("enter", {projects});
 
@@ -119,7 +201,7 @@ export default class NimusInstanceManager {
                         logger.debug("instance deleted");
 
                         // Let's remove the instance resource
-                        return this.instanceRemove(project.name, instance.name, {skipConfirmation: true});
+                        return this.remove(project.name, instance.name, {skipConfirmation: true});
                     } else {
                         status[project.name][instance.name] = "FAILED";
                     }
@@ -163,7 +245,7 @@ export default class NimusInstanceManager {
 
             // @TODO : Update projects files with new instance status.
 
-            spinner.stop(true);
+            spinner.stop();
             LoggerFactory.log(table.toString());
         } catch(error) {
             // Do nothing
@@ -172,7 +254,7 @@ export default class NimusInstanceManager {
 
     async remove(projectName, instanceName, {skipConfirmation=false}={}) {
         const logger = Logger.create("instanceRemove");
-        const spinner = new Spinner("%s");
+        const spinner = ora();
         logger.debug("enter", {projectName, instanceName});
 
         const project = ProjectStore.get(projectName);
@@ -257,7 +339,7 @@ export default class NimusInstanceManager {
 
         try {
             const results = await Promise.all(promises);
-            spinner.stop(true);
+            spinner.stop();
 
             logger.debug("instances removed", results);
 
@@ -271,7 +353,7 @@ export default class NimusInstanceManager {
                 LoggerFactory.info(`☕️  instance "${instance.name}" removed`, {elapsed: metrics.elapsed()});
             }
         } catch(error) {
-            spinner.stop(true);
+            spinner.stop();
             logger.error("instance remove error", error);
         }
     }
