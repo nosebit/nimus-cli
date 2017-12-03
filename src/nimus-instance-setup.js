@@ -11,4 +11,4 @@ program
     .option("-n, --name <name>", "Instance name", lodash.kebabCase)
     .parse(process.argv);
 
-nimus.instance.remove(program.project, program.name);
+nimus.instance.setup(program.project, program.name);

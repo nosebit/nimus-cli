@@ -3,6 +3,7 @@
  * to something nimus can use.
  */
 import lodash from "lodash";
+import hash from "object-hash";
 import GoogleApi from "./api";
 import LoggerFactory from "../../utils/logger";
 
@@ -11,11 +12,11 @@ const Logger = new LoggerFactory("drivers.google");
 export default class GoogleDriver {
     static validateData(data = {}) {
         if(!data.name) {
-            return new Error("name is required for google driver");
+            return "name is required for google driver";
         }
 
         if(!data.credentials) {
-            return new Error("credentials file path is required for google driver");
+            return "credentials file path is required for google driver";
         }
     }
 
@@ -30,7 +31,19 @@ export default class GoogleDriver {
         this.project = credentials.project_id;
         this.zone = zone;
         this.machineType = machineType;
+        this.credentials = credentials;
         this.api = new GoogleApi({credentials, zone});
+    }
+
+    /**
+     * This function gets driver core data
+     */
+    getData() {
+        return {
+            provider: this.provider,
+            name: this.name,
+            credentials: this.credentials
+        };
     }
 
     /**
@@ -64,10 +77,27 @@ export default class GoogleDriver {
     async instanceCreate({
         name="",
         zone=this.zone,
-        machineType=this.machineType
+        machineType=this.machineType,
+        metadata={}
     } = {}) {
         const logger = Logger.create("instanceCreate");
-        logger.debug("enter", {name, machineType, zone});
+        logger.debug("enter", {name, machineType, zone, metadata});
+
+        const metadataItems = [];
+        const metadataKeys = Object.keys(metadata);
+
+        logger.debug("enter", {name, metadata});
+
+        for(let i = 0; i < metadataKeys.length; i++) {
+            const key = metadataKeys[i];
+            const value = metadata[key];
+
+            metadataItems.push({key, value});
+        }
+
+        const fingerprint = hash(metadataItems);
+
+        logger.debug("metadataItems", {metadataItems, fingerprint});
 
         // (1) create the instance.
         const createResult = await this.api.instanceCreate({
@@ -85,7 +115,12 @@ export default class GoogleDriver {
                 initializeParams: {
                     sourceImage: "projects/debian-cloud/global/images/family/debian-8"
                 }
-            }]
+            }],
+            metadata: {
+                kind: "compute#metadata",
+                items: metadataItems,
+                fingerprint
+            }
         });
 
         logger.debug("instance created", createResult);
@@ -123,6 +158,37 @@ export default class GoogleDriver {
         logger.debug("normalized instance info", normalizedResult);
 
         return normalizedResult;
+    }
+
+    // This function add metadata to instance
+    async instanceMetadataSet(name, metadata = {}) {
+        const logger = Logger.create("instanceMetadataSet");
+        const items = [];
+        const keys = Object.keys(metadata);
+
+        logger.debug("enter", {name, metadata});
+
+        for(let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const value = metadata[key];
+
+            items.push({key, value});
+        }
+
+        const fingerprint = hash(items);
+
+        logger.debug("items", {items, fingerprint});
+
+        try {
+            await this.api.instanceMetadataSet(name, {
+                fingerprint,
+                items
+            });
+        } catch(error) {
+            throw this.normalizeError(error);
+        }
+
+        logger.debug("success");
     }
 
     // This function removes resources assotiated to an instance.

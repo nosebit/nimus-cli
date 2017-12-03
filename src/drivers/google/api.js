@@ -93,7 +93,7 @@ export default class GoogleApi {
                     if(result.status === "DONE") {
                         resolve(result);
                     } else if(checkCount >= MAX_WAIT_FOR_IT_COUNT) {
-                        reject(new Error("timeout"));
+                        reject("timeout");
                     } else {
                         setTimeout(check, 1000);
                     }
@@ -175,6 +175,18 @@ export default class GoogleApi {
             "DELETE", 
             `${GoogleApi.computeBaseUrl}/projects/${this.project}/zones/${this.zone}/instances/${name}`,
             null,
+            {operationType: "zone"}
+        )
+    }
+
+    /**
+     * This function sets metadata to an instance
+     */
+    instanceMetadataSet(instanceName, metadata) {
+        return this.request(
+            "POST", 
+            `${GoogleApi.computeBaseUrl}/projects/${this.project}/zones/${this.zone}/instances/${instanceName}/setMetadata`,
+            metadata,
             {operationType: "zone"}
         )
     }

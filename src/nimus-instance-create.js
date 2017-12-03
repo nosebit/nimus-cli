@@ -15,7 +15,7 @@ program
     .option("-c, --count [count]", "Number of instances to create", 1)
     .parse(process.argv);
 
-nimus.instanceCreate(
+nimus.instance.create(
     program.project,
     program.driver,
     {
