@@ -36,6 +36,17 @@ const levelOrder = ["debug", "info", "warn", "error"];
  */
 class LoggerFactory {
     static level = (process.env.NODE_ENV == "development" ? 0 : 1);
+    static globalSpinner = ora({spinner: "star", color: "green"});
+
+    static startSpinner() {
+        LoggerFactory.spinning = true;
+        LoggerFactory.globalSpinner.start();
+    }
+
+    static stopSpinner() {
+        LoggerFactory.spinning = false;
+        LoggerFactory.globalSpinner.stop();
+    }
 
     static _log(level, message, data, opts = {}) {
         const levelColor = getLevelColor(level);
@@ -52,11 +63,17 @@ class LoggerFactory {
 
         text = `${text} ${colors.grey(dataStr)}`;
         const timestamp = moment();
-        const symbol = opts.symbol || (level != "error" ? "•" : "🔴");
+        const symbol = level != "log" ? (opts.symbol || "• ") : "";
         const spinner = ora({text: `${text}`, spinner: "circle", color: "black"});
 
         if(!opts.async) {
-            console.log(`${symbol} ${text}`);
+            if(LoggerFactory.spinning) {
+                LoggerFactory.stopSpinner();
+                console.log(`${symbol}${text}`);
+                LoggerFactory.startSpinner();
+            } else {
+                console.log(`${symbol}${text}`);
+            }
         } else {
             spinner.start();
         }
@@ -192,11 +209,17 @@ class Logger {
 
         const text = `${levelColor(level)}: [${this.moduleName}] ${this.scopeName} : ${message} ${colors.grey(dataStr)}`;
         const timestamp = moment();
-        const symbol = opts.symbol || (level != "error" ? "•" : "🔴");
+        const symbol = opts.symbol || "• ";
         const spinner = ora({text: `${text}`, spinner: "circle", color: "black"});
 
         if(!opts.async) {
-            console.log(`${symbol} ${text}`);
+            if(LoggerFactory.spinning) {
+                LoggerFactory.stopSpinner();
+                console.log(`${symbol}${text}`);
+                LoggerFactory.startSpinner();
+            } else {
+                console.log(`${symbol}${text}`);
+            }
         } else {
             spinner.start();
         }

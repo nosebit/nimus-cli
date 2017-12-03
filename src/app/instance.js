@@ -19,6 +19,8 @@ export default class NimusInstanceManager {
 
         const project = ProjectStore.get(projectName);
 
+        LoggerFactory.startSpinner();
+
         // Create new project if not created yet.
         if(!project) {
             return logger.error("project not found");
@@ -48,29 +50,27 @@ export default class NimusInstanceManager {
 
             logger.debug("ssh connect data", connectData);
             
-            let metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`, null, {async: true});
+            let metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`);
 
             ssh.on('ready', () => {
-                metrics.stop();
-
-                metrics = LoggerFactory.info(`⚙️  (${instance.name}) setting up instance ...`, {timeToConnect: metrics.elapsed()}, {async: true});
+                LoggerFactory.info(`⚙️  (${instance.name}) setting up instance ...`, {timeToConnect: metrics.elapsed()});
 
                 ssh.exec('uptime', (error, stream) => {
                     if (error) {
-                        metrics.stop();
+                        LoggerFactory.stopSpinner();
                         logger.error(`😱  (${instance.name}) ssh command failed`, error);
                         return reject(error);
                     }
 
                     stream.on('close', (code, signal) => {
-                        metrics.stop();
+                        LoggerFactory.stopSpinner();
                         LoggerFactory.info(`📡  (${instance.name}) disconnect`, {timeToSetup: metrics.elapsed()});
 
                         resolve();
                         ssh.end();
                     }).on('data', (info) => {
-                        metrics.stop();
-                        LoggerFactory.info(`⚙️  (${instance.name}) ${info}`);
+                        info = lodash.toString(info);
+                        LoggerFactory.info(`⚙️  (${instance.name}) ${info.replace(/\r?\n|\r/g, "").replace(/^ +/, "")}`);
                     });
                 });
             }).connect(connectData);
@@ -95,7 +95,7 @@ export default class NimusInstanceManager {
             return logger.error("project not found");
         }
 
-        const spinner = ora().start();
+        LoggerFactory.startSpinner();
 
         const promises = [];
 
@@ -107,7 +107,7 @@ export default class NimusInstanceManager {
                 "sshKeys": `nimus:${project.pubKey}`
             };
 
-            const metrics = LoggerFactory.info(`🚀  [${instanceData.name}] creating instance`);
+            const metrics = LoggerFactory.info(`🚀  (${instanceData.name}) creating instance`);
 
             logger.debug(`instance data`, instanceData);
 
@@ -129,7 +129,7 @@ export default class NimusInstanceManager {
                     try {
                         await this.setup(project.name, instance.name);
                     } catch(error) {
-                        logger.error(`could not setup instance "${instance.name}"`, error);
+                        logger.error(`(${instance.name}) could not setup instance`, error);
                     }
 
                     return {metrics, instance};
@@ -146,9 +146,9 @@ export default class NimusInstanceManager {
 
         try {
             const results = await Promise.all(promises);
-            spinner.stop();
+            LoggerFactory.stopSpinner();
 
-            logger.debug("driver instanceCreate success", results);
+            logger.debug("driver instanceCreate success", {count: results.length});
 
             // Update project with new instances
             for(let i = 0; i < results.length; i++) {
@@ -158,10 +158,10 @@ export default class NimusInstanceManager {
                     continue;
                 }
 
-                LoggerFactory.info(`☕️  instance "${instance.name}" created : ip=${instance.network.externalIp}`, {elapsed: metrics.elapsed()});
+                LoggerFactory.info(`☕️  (${instance.name}) instance created : ip=${instance.network.externalIp}`, {elapsed: metrics.elapsed()});
             }
         } catch(error) {
-            spinner.stop();
+            LoggerFactory.stopSpinner();
             logger.error("instance create error", error);
         }
     }
@@ -173,8 +173,7 @@ export default class NimusInstanceManager {
         const promises = [];
 
         LoggerFactory.info("🚀  listing instances");
-
-        const spinner = ora().start();
+        LoggerFactory.startSpinner();
 
         logger.debug("enter", {projects});
 
@@ -245,7 +244,7 @@ export default class NimusInstanceManager {
 
             // @TODO : Update projects files with new instance status.
 
-            spinner.stop();
+            LoggerFactory.stopSpinner();
             LoggerFactory.log(table.toString());
         } catch(error) {
             // Do nothing
@@ -254,7 +253,6 @@ export default class NimusInstanceManager {
 
     async remove(projectName, instanceName, {skipConfirmation=false}={}) {
         const logger = Logger.create("instanceRemove");
-        const spinner = ora();
         logger.debug("enter", {projectName, instanceName});
 
         const project = ProjectStore.get(projectName);
@@ -335,13 +333,14 @@ export default class NimusInstanceManager {
             })(instance, metrics);
         }
 
-        spinner.start();
+        LoggerFactory.startSpinner();
 
         try {
             const results = await Promise.all(promises);
-            spinner.stop();
 
-            logger.debug("instances removed", results);
+            LoggerFactory.stopSpinner();
+
+            logger.debug("instances removed", {count: results.length});
 
             for(let i = 0; i < results.length; i++) {
                 const {instance, metrics} = results[i];
@@ -353,7 +352,7 @@ export default class NimusInstanceManager {
                 LoggerFactory.info(`☕️  instance "${instance.name}" removed`, {elapsed: metrics.elapsed()});
             }
         } catch(error) {
-            spinner.stop();
+            LoggerFactory.stopSpinner();
             logger.error("instance remove error", error);
         }
     }

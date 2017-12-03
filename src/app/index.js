@@ -3,7 +3,6 @@ import path from "path";
 import os from "os";
 import mkdirp from "mkdirp";
 import lodash from "lodash";
-import {Spinner} from "cli-spinner";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
 import {spawn} from "child_process";
