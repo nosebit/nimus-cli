@@ -1,20 +1,20 @@
 {
   "name": "nimus-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Nimus command line interface",
-  "main": "dist/main.js",
+  "main": "dist/nimus.js",
   "author": "Bruno Fonseca <brunomacf@gmail.com>",
   "license": "MIT",
   "scripts": {
     "build": "babel -d dist/ src/",
-    "dev": "NODE_PATH=./:./src NODE_ENV=development babel-node ./src/main.js",
-    "prod": "babel -d dist/ src/ && NODE_PATH=./:./dist NODE_ENV=production node ./dist/main.js",
+    "dev": "NODE_PATH=./:./src NODE_ENV=development babel-node ./src/nimus.js",
+    "prod": "babel -d dist/ src/ && NODE_PATH=./:./dist NODE_ENV=production node ./dist/nimus.js",
     "test": "NODE_PATH=./:./src NODE_ENV=test mocha --reporter list --timeout 30000 --watch --compilers js:babel-core/register --require babel-polyfill --recursive --opts .test.js ./src",
     "doc": "jsdoc --configure .jsdoc.json --verbose",
     "prepublish": "npm run build"
   },
   "bin": {
-    "nimus": "./dist/main.js"
+    "nimus": "dist/nimus.js"
   },
   "devDependencies": {
     "babel-eslint": "^8.0.1",
