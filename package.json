@@ -1,6 +1,6 @@
 {
   "name": "nimus-cli",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Nimus command line interface",
   "main": "dist/nimus.js",
   "author": "Bruno Fonseca <brunomacf@gmail.com>",
