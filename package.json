@@ -15,23 +15,22 @@
   },
   "devDependencies": {
     "babel-eslint": "^8.0.1",
-    "babel-plugin-transform-runtime": "^6.23.0",
-    "chai": "^4.1.2",
-    "chai-as-promised": "^7.1.1",
-    "eslint": "^4.8.0",
-    "jsdoc": "^3.5.5",
-    "mocha": "^4.0.1",
-    "nodemon": "^1.12.1"
-  },
-  "dependencies": {
-    "@google-cloud/compute": "^0.9.0",
     "babel-cli": "^6.26.0",
     "babel-plugin-add-module-exports": "^0.2.1",
     "babel-plugin-autobind-class-methods": "^5.0.1",
     "babel-plugin-transform-class-properties": "^6.24.1",
     "babel-plugin-transform-export-extensions": "^6.22.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
     "babel-polyfill": "^6.26.0",
     "babel-preset-env": "^1.6.0",
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
+    "eslint": "^4.8.0",
+    "jsdoc": "^3.5.5",
+    "mocha": "^4.0.1"
+  },
+  "dependencies": {
+    "@google-cloud/compute": "^0.9.0",
     "babel-runtime": "^6.26.0",
     "cli-spinner": "^0.2.7",
     "cli-table": "^0.3.1",
