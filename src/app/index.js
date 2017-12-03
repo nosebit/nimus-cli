@@ -6,7 +6,7 @@ import lodash from "lodash";
 import {Spinner} from "cli-spinner";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
-import LoggerFactory from "utils/logger";
+import LoggerFactory from "../utils/logger";
 import {GoogleDriver} from "../drivers";
 
 const Logger = new LoggerFactory("nimus");

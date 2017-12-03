@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import program from "commander";
-import LoggerFactory from "utils/logger";
+import LoggerFactory from "./utils/logger";
 import Nimus from "./app";
 
 program

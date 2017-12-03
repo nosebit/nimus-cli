@@ -4,7 +4,7 @@
  */
 import lodash from "lodash";
 import GoogleApi from "./api";
-import LoggerFactory from "utils/logger";
+import LoggerFactory from "../../utils/logger";
 
 const Logger = new LoggerFactory("drivers.google");
 

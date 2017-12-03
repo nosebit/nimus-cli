@@ -1,7 +1,7 @@
 import request from "request";
 import lodash from "lodash";
 import googleAuth from "google-auto-auth";
-import LoggerFactory from "utils/logger";
+import LoggerFactory from "../../utils/logger";
 
 const Logger = new LoggerFactory("drivers.google.api");
 
