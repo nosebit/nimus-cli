@@ -1,0 +1,71 @@
+env:
+    browser: true
+    commonjs: true
+    es6: true
+extends:
+    - 'eslint:recommended'
+parser: 'babel-eslint'
+parserOptions:
+    sourceType: module
+globals:
+    describe: true
+    it: true
+    test: true
+    expect: true
+    process: true
+    jest: true
+    __dirname: true
+plugins:
+    - react
+    - flowtype
+rules:
+    indent:
+        - error
+        - 4
+        -
+            SwitchCase: 1
+            VariableDeclarator: 1
+    linebreak-style:
+        - error
+        - unix
+    quotes:
+        - error
+        - double
+    semi:
+        - error
+        - always
+    no-console:
+        - off
+    no-unused-vars:
+        - error
+        - varsIgnorePattern: "styles"
+    #valid-jsdoc:
+    #    - error
+    #require-jsdoc:
+    #    - error
+    #    -
+    #      require:
+    #        FunctionDeclaration: true
+    #        MethodDefinition: true
+    #        ClassDeclaration: true
+    react/jsx-uses-react:
+        - error
+    react/jsx-uses-vars:
+        - error
+    flowtype/require-parameter-type:
+        - error
+        -
+            excludeArrowFunctions: true
+    flowtype/define-flow-type:
+        - error
+    flowtype/space-before-type-colon:
+        - error
+        - never
+    flowtype/space-after-type-colon:
+        - error
+        - always
+    flowtype/use-flow-type: error
+    
+settings:
+    flowtype:
+        onlyFilesWithFlowAnnotation: false
