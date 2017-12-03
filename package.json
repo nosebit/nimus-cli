@@ -1,5 +1,5 @@
 {
-  "name": "nimus",
+  "name": "nimus-cli",
   "version": "1.0.0",
   "description": "Nimus command line interface",
   "main": "dist/main.js",
@@ -12,6 +12,9 @@
     "test": "NODE_PATH=./:./src NODE_ENV=test mocha --reporter list --timeout 30000 --watch --compilers js:babel-core/register --require babel-polyfill --recursive --opts .test.js ./src",
     "doc": "jsdoc --configure .jsdoc.json --verbose",
     "prepublish": "npm run build"
+  },
+  "bin": {
+    "nimus": "./dist/main.js"
   },
   "devDependencies": {
     "babel-eslint": "^8.0.1",
