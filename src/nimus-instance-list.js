@@ -8,4 +8,4 @@ const nimus = new Nimus();
 program
     .parse(process.argv);
 
-nimus.instanceList();
+nimus.instance.list();

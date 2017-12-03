@@ -11,11 +11,11 @@ const Logger = new LoggerFactory("drivers.google");
 export default class GoogleDriver {
     static validateData(data = {}) {
         if(!data.name) {
-            return new Error("name is required for google driver");
+            return "name is required for google driver";
         }
 
         if(!data.credentials) {
-            return new Error("credentials file path is required for google driver");
+            return "credentials file path is required for google driver";
         }
     }
 
@@ -30,7 +30,19 @@ export default class GoogleDriver {
         this.project = credentials.project_id;
         this.zone = zone;
         this.machineType = machineType;
+        this.credentials = credentials;
         this.api = new GoogleApi({credentials, zone});
+    }
+
+    /**
+     * This function gets driver core data
+     */
+    getData() {
+        return {
+            provider: this.provider,
+            name: this.name,
+            credentials: this.credentials
+        };
     }
 
     /**

@@ -93,7 +93,7 @@ export default class GoogleApi {
                     if(result.status === "DONE") {
                         resolve(result);
                     } else if(checkCount >= MAX_WAIT_FOR_IT_COUNT) {
-                        reject(new Error("timeout"));
+                        reject("timeout");
                     } else {
                         setTimeout(check, 1000);
                     }

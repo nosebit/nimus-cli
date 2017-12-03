@@ -163,9 +163,12 @@ class Logger {
         let consoleLevel = Logger.consoleLevelMap[level];
         let levelColor = getLevelColor(level);
 
-        let dataStr = data ?
-            ": " + JSON.stringify(lodash.merge({}, data)) :
-            "";
+        let dataStr = "";
+
+        if(data) {
+            dataStr = lodash.isString(data) ? `: ${data}` :
+                ": " + JSON.stringify(data);
+        }
 
         console.log(
             `${levelColor(level)}: [${this.moduleName}] ${this.scopeName} : ${message} ${colors.grey(dataStr)}`
