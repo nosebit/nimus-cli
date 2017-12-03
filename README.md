@@ -7,7 +7,7 @@ Nimus is like npm for clusters. Create and manage instances and deploys very eas
 To install nimus, just run:
 
 ```
-sudo npm install -g nimus
+sudo npm install -g nimus-cli
 ```
 
 ## Usage
