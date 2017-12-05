@@ -174,8 +174,12 @@ class Nimus {
         const name = data.name;
         logger.debug("enter", {provider, data});
 
+        if(!provider) {
+            return logger.error("provider is required");
+        }
+
         if(!lodash.isString(name)) {
-            return logger.error("a name string should be provided");
+            return logger.error("a name string is required");
         }
 
         if(DriverStore.exists(data.name)) {

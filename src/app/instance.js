@@ -1,8 +1,12 @@
+import fs from "fs";
+import os from "os";
+import path from "path";
 import lodash from "lodash";
 import ora from "ora";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
 import ssh2 from "ssh2";
+import blessed from "blessed";
 
 import LoggerFactory from "../utils/logger";
 import {DriverStore, ProjectStore} from "../stores";
@@ -73,6 +77,121 @@ export default class NimusInstanceManager {
                         LoggerFactory.info(`⚙️  (${instance.name}) ${info.replace(/\r?\n|\r/g, "").replace(/^ +/, "")}`);
                     });
                 });
+            }).connect(connectData);
+        });
+    }
+
+    /**
+     * This function runs a shell script against the server
+     */
+    run(projectName, instanceName, script) {
+        const logger = Logger.create("run");
+        logger.debug("enter", {projectName, instanceName, script});
+
+        const project = ProjectStore.get(projectName);
+
+        LoggerFactory.startSpinner();
+
+        // Create new project if not created yet.
+        if(!project) {
+            return logger.error("project not found");
+        }
+
+        const instance = project.instances[instanceName];
+
+        if(!instance) {
+            return logger.error("instance not found");
+        }
+
+        const driver = DriverStore.get(instance.driver);
+
+        if(!driver) {
+            return logger.error("driver not found");
+        }
+
+        return new Promise((resolve, reject) => {
+            const ssh = new ssh2.Client();
+            const connectData = {
+                host: instance.network.externalIp,
+                username: 'nimus',
+                port: 22,
+                privateKey: project.prvKey,
+                readyTimeout: 99999
+            };
+
+            logger.debug("ssh connect data", connectData);
+            
+            const metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`);
+
+            ssh.on('ready', () => {
+                LoggerFactory.stopSpinner();
+
+                // Handle running script file
+                if(fs.existsSync(script)) {
+                    logger.debug("script is file");
+
+                    // First we going to upload file to the server.
+                    ssh.sftp((error, sftp) => {
+                        if(error) {
+                            logger.error("could start sftp connection", error);
+                            reject(error);
+                            return ssh.end();
+                        }
+
+                        // upload file
+                        const readStream = fs.createReadStream(script);
+                        const writeStream = sftp.createWriteStream("/tmp/nimus.script");
+
+                        // finish upload
+                        writeStream.on("close", () => {
+                            logger.debug("script upload success");
+                            resolve();
+                            sftp.end();
+
+                            LoggerFactory.info(`⚙️  (${instance.name}) running script ...`)
+
+                            // Now run the script
+                            ssh.exec("bash /tmp/nimus.script", (error, stream) => {
+                                if(error) {
+                                    logger.error("could not run script", error);
+                                    ssh.end();
+                                    return reject(error);
+                                }
+
+                                stream.on("close", (code, signal) => {
+                                    LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
+                                    ssh.end();
+                                }).on("data", (info) => {
+                                    process.stdout.write(info);
+                                }).stderr.on('data', (info) => {
+                                    process.stdout.write(info);
+                                });
+                            });
+                        });
+
+                        // initiate upload
+                        readStream.pipe(writeStream);
+                    })
+                } else {
+                    // Handle exec command
+                    ssh.exec(script, (error, stream) => {
+                        if (error) {
+                            logger.error(`😱  (${instance.name}) ssh command failed`, error);
+                            reject(error);
+                            return ssh.end();
+                        }
+
+                        stream.on("close", (code, signal) => {
+                            LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
+                            ssh.end();
+                            resolve();
+                        }).on("data", (info) => {
+                            process.stdout.write(info);
+                        }).stderr.on('data', (info) => {
+                            process.stdout.write(info);
+                        });
+                    });
+                }
             }).connect(connectData);
         });
     }

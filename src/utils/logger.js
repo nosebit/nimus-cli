@@ -66,13 +66,15 @@ class LoggerFactory {
         const symbol = level != "log" ? (opts.symbol || "• ") : "";
         const spinner = ora({text: `${text}`, spinner: "circle", color: "black"});
 
+        const logFn = opts.stdout ? process.stdout.write : console.log;
+
         if(!opts.async) {
             if(LoggerFactory.spinning) {
                 LoggerFactory.stopSpinner();
-                console.log(`${symbol}${text}`);
+                logFn(`${symbol}${text}`);
                 LoggerFactory.startSpinner();
             } else {
-                console.log(`${symbol}${text}`);
+                logFn(`${symbol}${text}`);
             }
         } else {
             spinner.start();

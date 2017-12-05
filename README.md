@@ -26,7 +26,7 @@ Currently, nimus only support Google Cloud, but other providers are comming soon
 With your credentials json file dowloaded, let's create a nimus driver to google cloud using the credentials file:
 
 ```
-nimus driver create --name=my-google-driver --credentials=/path/to/credentials.json
+nimus driver create --provider=gce --credentials=/path/to/credentials.json --name=my-google-driver
 ```
 
 This driver dictates how nimus communicate with you google cloud account.
@@ -59,6 +59,18 @@ This command will create the instances `db-1`, `db-2` and `db-3`. To remove thes
 
 ```
 nimus instance remove --name=db
+```
+
+To run a script against an instance, just do the following:
+
+```
+nimus instance run --project=my-project --name=my-instance /path/to/script
+```
+
+You can run single commands too:
+
+```
+nimus instance run --project=my-project --name=my-instance "echo hello world"
 ```
 
 Soon we going to provide the first service packages to be deployed in your infra.
