@@ -6,7 +6,6 @@ import ora from "ora";
 import Table from "cli-table";
 import Confirm from "prompt-confirm";
 import ssh2 from "ssh2";
-import blessed from "blessed";
 
 import LoggerFactory from "../utils/logger";
 import {DriverStore, ProjectStore} from "../stores";
