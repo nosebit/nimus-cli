@@ -56,6 +56,7 @@ export default class GoogleDriver {
             zone: instance.zone,
             driver: this.name,
             status: instance.status,
+            os: "centos-7",
             network: {
                 internalIp: lodash.get(instance, "networkInterfaces[0].networkIP"),
                 externalIp: lodash.get(instance, "networkInterfaces[0].accessConfigs[0].natIP")
@@ -113,7 +114,7 @@ export default class GoogleDriver {
             disks: [{
                 boot: true,
                 initializeParams: {
-                    sourceImage: "projects/debian-cloud/global/images/family/debian-8"
+                    sourceImage: "projects/centos-cloud/global/images/family/centos-7"
                 }
             }],
             metadata: {
