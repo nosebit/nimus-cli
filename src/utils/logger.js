@@ -51,9 +51,12 @@ class LoggerFactory {
     static _log(level, message, data, opts = {}) {
         const levelColor = getLevelColor(level);
 
-        let dataStr = data ?
-            ": " + JSON.stringify(lodash.merge({}, data)) :
-            "";
+        let dataStr = "";
+
+        if(data) {
+            dataStr = lodash.isString(data) ? `: ${data}` :
+                ": " + JSON.stringify(data);
+        }
 
         let text = `${levelColor(level)}: ${message}`;
 

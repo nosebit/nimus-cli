@@ -13,6 +13,40 @@ import {DriverStore, ProjectStore} from "../stores";
 const Logger = new LoggerFactory("instance.manager");
 
 export default class NimusInstanceManager {
+    static getSetupFilePath(serviceName, instance) {
+        const logger = Logger.create("getSetupFilePath");
+        const basePath = `../../scripts/${serviceName}`;
+        const fullOS = instance.os;
+        const baseOS = instance.os.split("-")[0];
+
+        logger.debug("enter", {serviceName, basePath, fullOS, baseOS});
+
+        const possiblePaths = [
+            `${basePath}/${fullOS}.sh`,
+            `${basePath}/${baseOS}.sh`,
+        ];
+
+        logger.debug("possiblePaths", possiblePaths);
+
+        for(let i = 0; i < possiblePaths.length; i++) {
+            let possiblePath = possiblePaths[i];
+
+            try {
+                possiblePath = path.resolve(__dirname, possiblePath);
+                logger.debug(`possible path exists : i=${i}`, {possiblePath});
+
+                if(fs.existsSync(possiblePath)) {
+                    logger.debug("path found", possiblePath);
+                    return possiblePath;
+                }
+            } catch(error) {
+                logger.debug(`possible path exists error : i=${i}`, error);
+            }
+        }
+
+        throw `could not find setup script : service=${serviceName}`;
+    }
+
     /**
      * This function setups an instance.
      */
@@ -21,8 +55,6 @@ export default class NimusInstanceManager {
         logger.debug("enter", {projectName, instanceName});
 
         const project = ProjectStore.get(projectName);
-
-        LoggerFactory.startSpinner();
 
         // Create new project if not created yet.
         if(!project) {
@@ -41,49 +73,31 @@ export default class NimusInstanceManager {
             return logger.error("driver not found");
         }
 
-        return new Promise((resolve, reject) => {
-            const ssh = new ssh2.Client();
-            const connectData = {
-                host: instance.network.externalIp,
-                username: 'nimus',
-                port: 22,
-                privateKey: project.prvKey,
-                readyTimeout: 99999
-            };
+        LoggerFactory.startSpinner();
 
-            logger.debug("ssh connect data", connectData);
-            
-            let metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`);
+        // Install docker
+        LoggerFactory.info(`⚙️  (${instance.name}) setting up ...`);
 
-            ssh.on('ready', () => {
-                LoggerFactory.info(`⚙️  (${instance.name}) setting up instance ...`, {timeToConnect: metrics.elapsed()});
+        try {
+            await this.run(
+                projectName,
+                instanceName,
+                NimusInstanceManager.getSetupFilePath("docker", instance),
+                {preventLocalLogging: true}
+            );
+        } catch(error) {
+            LoggerFactory.stopSpinner();
+            return logger.error(`😱  (${instance.name}) could not install docker`, error);
+        }
 
-                ssh.exec('uptime', (error, stream) => {
-                    if (error) {
-                        LoggerFactory.stopSpinner();
-                        logger.error(`😱  (${instance.name}) ssh command failed`, error);
-                        return reject(error);
-                    }
-
-                    stream.on('close', (code, signal) => {
-                        LoggerFactory.stopSpinner();
-                        LoggerFactory.info(`📡  (${instance.name}) disconnect`, {timeToSetup: metrics.elapsed()});
-
-                        resolve();
-                        ssh.end();
-                    }).on('data', (info) => {
-                        info = lodash.toString(info);
-                        LoggerFactory.info(`⚙️  (${instance.name}) ${info.replace(/\r?\n|\r/g, "").replace(/^ +/, "")}`);
-                    });
-                });
-            }).connect(connectData);
-        });
+        LoggerFactory.stopSpinner();
+        LoggerFactory.info(`⚙️  (${instance.name}) setup completed`);
     }
 
     /**
      * This function runs a shell script against the server
      */
-    run(projectName, instanceName, script) {
+    run(projectName, instanceName, script, {preventLocalLogging=false}) {
         const logger = Logger.create("run");
         logger.debug("enter", {projectName, instanceName, script});
 
@@ -120,13 +134,29 @@ export default class NimusInstanceManager {
 
             logger.debug("ssh connect data", connectData);
             
-            const metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`);
+            let metrics;
+            if(!preventLocalLogging) {
+                metrics = LoggerFactory.info(`📡  (${instance.name}) connecting to instance ...`);
+            }
 
             ssh.on('ready', () => {
                 LoggerFactory.stopSpinner();
 
+                let isFile = false;
+                let scriptPath;
+
+                try {
+                    scriptPath = path.resolve(process.cwd(), script);
+
+                    isFile = fs.existsSync(scriptPath);
+                    logger.debug("scriptPath", {scriptPath});
+                } catch(error) {
+                    logger.debug("could not check script file");
+                    // Do nothing
+                }
+
                 // Handle running script file
-                if(fs.existsSync(script)) {
+                if(isFile) {
                     logger.debug("script is file");
 
                     // First we going to upload file to the server.
@@ -138,16 +168,17 @@ export default class NimusInstanceManager {
                         }
 
                         // upload file
-                        const readStream = fs.createReadStream(script);
+                        const readStream = fs.createReadStream(scriptPath);
                         const writeStream = sftp.createWriteStream("/tmp/nimus.script");
 
                         // finish upload
                         writeStream.on("close", () => {
                             logger.debug("script upload success");
-                            resolve();
                             sftp.end();
 
-                            LoggerFactory.info(`⚙️  (${instance.name}) running script ...`)
+                            if(!preventLocalLogging) {
+                                LoggerFactory.info(`⚙️  (${instance.name}) running script ...`)
+                            }
 
                             // Now run the script
                             ssh.exec("bash /tmp/nimus.script", (error, stream) => {
@@ -158,7 +189,11 @@ export default class NimusInstanceManager {
                                 }
 
                                 stream.on("close", (code, signal) => {
-                                    LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
+                                    if(!preventLocalLogging) {
+                                        LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
+                                    }
+
+                                    resolve();
                                     ssh.end();
                                 }).on("data", (info) => {
                                     process.stdout.write(info);
@@ -181,9 +216,12 @@ export default class NimusInstanceManager {
                         }
 
                         stream.on("close", (code, signal) => {
-                            LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
-                            ssh.end();
+                            if(!preventLocalLogging) {
+                                LoggerFactory.info(`📡  (${instance.name}) disconnected`, {timeToSetup: metrics.elapsed()});
+                            }
+
                             resolve();
+                            ssh.end();
                         }).on("data", (info) => {
                             process.stdout.write(info);
                         }).stderr.on('data', (info) => {
@@ -336,6 +374,7 @@ export default class NimusInstanceManager {
                 head: [
                     "project",
                     "instance",
+                    "OS",
                     "private IP",
                     "public IP",
                     "status"
@@ -353,6 +392,7 @@ export default class NimusInstanceManager {
                     table.push([
                         project.name,
                         instance.name,
+                        instance.os,
                         instance.network.internalIp,
                         instance.network.externalIp,
                         instanceStatus
